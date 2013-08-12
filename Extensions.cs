@@ -13,6 +13,21 @@ namespace JoshCodes.Persistence.Azure.Sql.Extensions
 {
     public static class Extensions
     {
+        public static bool TryParseRowKey(this Uri uri, CloudTableClient tableClient, out string rowKey, out string partitionKey)
+        {
+            string ns;
+            string[] nss;
+            if (!uri.TryParseUrnNamespaceString(out nss, out ns) || nss.Length < 3)
+            {
+                rowKey = null;
+                partitionKey = null;
+                return false;
+            }
+            rowKey = nss[2];
+            partitionKey = nss[1];
+            return true;
+        }
+
         public static string ParseRowKey(this Uri uri, CloudTableClient tableClient, out string partitionKey)
         {
             string ns;
