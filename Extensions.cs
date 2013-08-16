@@ -137,6 +137,40 @@ namespace JoshCodes.Persistence.Azure.Sql.Extensions
             {
                 tableServiceContext.UpdateObject(entity);
                 tableServiceContext.SaveChanges();
+                currentValue = newValue;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (ex.IsProblemPreconditionFailed())
+                {
+                    return false;
+                }
+                throw;
+            }
+        }
+
+        public static bool AtomicModification<TEntity>(
+            this TEntity entity,
+            Func<TEntity, bool> conditionForExecution,
+            Action<TEntity> updateAction,
+            Action<TEntity> onSuccess,
+            TableServiceContext tableServiceContext)
+            where TEntity : TableServiceEntity
+        {
+            // check the the object is in the requested state
+            if (!conditionForExecution(entity))
+            {
+                return false;
+            }
+
+            updateAction(entity);
+
+            try
+            {
+                tableServiceContext.UpdateObject(entity);
+                tableServiceContext.SaveChanges();
+                onSuccess(entity);
                 return true;
             }
             catch (Exception ex)

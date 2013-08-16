@@ -176,6 +176,26 @@ namespace JoshCodes.Persistence.Azure.Sql
             return success;
         }
 
+        protected bool AtomicModification(
+            Func<TEntity, bool> conditionForExecution,
+            Action<TEntity> updateAction,
+            Action<TEntity> onSuccess)
+        {
+            var tableServiceContext = _tableClient.GetDataServiceContext();
+            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
+            var results = from entity in query
+                          where entity.RowKey == _rowKey && entity.PartitionKey == _partitionKey
+                          select entity;
+            var storage = results.First();
+
+            var success = storage.AtomicModification(conditionForExecution, updateAction, onSuccess, tableServiceContext);
+            if (success)
+            {
+                this._storage = storage;
+            }
+            return success;
+        }
+
         protected void EditableStorage(Func<TEntity, bool> callback)
         {
             this.EditableStorage((entity, isRetry) =>
