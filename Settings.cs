@@ -10,7 +10,8 @@ namespace JoshCodes.Persistence.Azure.Sql
 
         private static string GetStorageSetting()
         {
-            var storageSetting = "DefaultEndpointsProtocol=https;AccountName=magicmoments;AccountKey=hOn8azxuMgwYfNG2rXysaJ2lX65cgWEWzoVzBnOtkePqCOleJOtTOHxaj7nkrYarMhsPPe0ESE+voFIGthCuDA==";
+            var storageSetting = System.Configuration.ConfigurationManager.AppSettings["azure.cloud_storage-storage_setting"];
+            // "DefaultEndpointsProtocol=https;AccountName=magicmoments;AccountKey=hOn8azxuMgwYfNG2rXysaJ2lX65cgWEWzoVzBnOtkePqCOleJOtTOHxaj7nkrYarMhsPPe0ESE+voFIGthCuDA==";
             //var storageSetting = CloudConfigurationManager.GetSetting(connectionStringName);
             return storageSetting;
         }
