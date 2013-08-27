@@ -67,6 +67,25 @@ namespace JoshCodes.Persistence.Azure.Sql
             return Find(partitionKey, rowKey);
         }
 
+        public TDefine FindByKey(string key)
+        {
+            var results = from entity in Query
+                          where entity.RowKey == key
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return _createObjectStore(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TDefine);
+        }
+
         public IEnumerable<TDefine> All()
         {
             _tableClient.CreateTableIfNotExist(_entityTableName);

@@ -146,6 +146,11 @@ namespace JoshCodes.Persistence.Azure.Sql
             }
         }
 
+        public string IdKey
+        {
+            get { return _rowKey; }
+        }
+
         public string Key
         {
             get { return _rowKey; }
