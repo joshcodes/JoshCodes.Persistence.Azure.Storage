@@ -52,11 +52,17 @@ namespace JoshCodes.Persistence.Azure.Sql
         {
             get
             {
-                var tableServiceContext = _tableClient.GetDataServiceContext();
-                tableServiceContext.IgnoreResourceNotFoundException = true;
-                var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
-                return query;
+                TableServiceContext tableServiceContext;
+                return GetQuery(out tableServiceContext);
             }
+        }
+
+        protected System.Data.Services.Client.DataServiceQuery<TEntity> GetQuery(out TableServiceContext tableServiceContext)
+        {
+            tableServiceContext = _tableClient.GetDataServiceContext();
+            tableServiceContext.IgnoreResourceNotFoundException = true;
+            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
+            return query;
         }
 
         public TDefine FindByUrn(Uri urn)
