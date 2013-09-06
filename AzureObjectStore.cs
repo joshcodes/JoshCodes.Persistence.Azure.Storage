@@ -29,24 +29,7 @@ namespace JoshCodes.Persistence.Azure.Sql
             _createObjectStore = createObjectStore;
         }
 
-        protected TDefine Find(string partitionKey, string rowKey)
-        {
-            var results = from entity in Query
-                          where entity.RowKey == rowKey && entity.PartitionKey == partitionKey
-                          select entity;
-            try
-            {
-                foreach (var result in results)
-                {
-                    return _createObjectStore(result);
-                }
-            }
-            catch (System.Data.Services.Client.DataServiceQueryException)
-            {
-
-            }
-            return default(TDefine);
-        }
+        #region Querying
 
         protected System.Data.Services.Client.DataServiceQuery<TEntity> Query
         {
@@ -63,6 +46,25 @@ namespace JoshCodes.Persistence.Azure.Sql
             tableServiceContext.IgnoreResourceNotFoundException = true;
             var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
             return query;
+        }
+
+        public TDefine Find(string partitionKey, string rowKey)
+        {
+            var results = from entity in Query
+                          where entity.RowKey == rowKey && entity.PartitionKey == partitionKey
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return _createObjectStore(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TDefine);
         }
 
         public TDefine FindByUrn(Uri urn)
@@ -103,6 +105,8 @@ namespace JoshCodes.Persistence.Azure.Sql
                           select _createObjectStore.Invoke(entity);
             return results;
         }
+
+        #endregion
 
         private class AutoIncrementStorage : TableServiceEntity
         {
