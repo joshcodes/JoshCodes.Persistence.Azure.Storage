@@ -7,13 +7,13 @@ using System.Runtime.Serialization;
 
 using Microsoft.WindowsAzure.StorageClient;
 
-using JoshCodes.Persistence.Azure.Sql.Extensions;
+using JoshCodes.Persistence.Azure.Storage.Extensions;
 using System.Net;
 
-namespace JoshCodes.Persistence.Azure.Sql
+namespace JoshCodes.Persistence.Azure.Storage
 {
     public class AzureObjectStore<TDefine, TWrapper, TEntity>
-        where TEntity : TableServiceEntity
+        where TEntity : Entity
         where TWrapper : AzureObjectWrapper<TEntity>, TDefine
     {
         protected delegate TWrapper CreateObjectStore(TEntity entity);

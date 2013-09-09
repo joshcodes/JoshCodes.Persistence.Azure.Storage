@@ -2,7 +2,7 @@
 
 using Microsoft.WindowsAzure;
 
-namespace JoshCodes.Persistence.Azure.Sql
+namespace JoshCodes.Persistence.Azure.Storage
 {
     public static class Settings
     {

@@ -6,10 +6,9 @@ using Microsoft.WindowsAzure.StorageClient;
 using JoshCodes.Core.Urns.Extensions;
 using JoshCodes.Web.Attributes.Extensions;
 
-using JoshCodes.Persistence.Azure.Sql;
 using System.Linq.Expressions;
 
-namespace JoshCodes.Persistence.Azure.Sql.Extensions
+namespace JoshCodes.Persistence.Azure.Storage.Extensions
 {
     public static class Extensions
     {
@@ -38,7 +37,7 @@ namespace JoshCodes.Persistence.Azure.Sql.Extensions
         }
 
         internal static Uri BuildUrn<T>(this AzureObjectWrapper<T> defines, string rowKey, string partitionKey, CloudTableClient tableClient)
-            where T : TableServiceEntity
+            where T : Entity
         {
             var nsId = defines.GetType().GetUrnNamespaceIdentifier(true);
             var urn = nsId.ToUrn(tableClient.BaseUri.Host, partitionKey, rowKey);

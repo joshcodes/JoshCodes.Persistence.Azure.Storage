@@ -10,20 +10,27 @@ using System.Data.Services.Client;
 
 using Microsoft.WindowsAzure.StorageClient;
 
-using JoshCodes.Persistence.Azure.Sql.Extensions;
+using JoshCodes.Persistence.Azure.Storage.Extensions;
 
-namespace JoshCodes.Persistence.Azure.Sql
+namespace JoshCodes.Persistence.Azure.Storage
 {
-    public class AzureObjectWrapper<TEntity> where TEntity : TableServiceEntity
+    public class AzureObjectWrapper<TEntity> where TEntity : Entity
     {
-        protected TEntity _storage;
+        // Information required to access the entity object
+        private string _rowKey;
+        private string _partitionKey;
+
+        // Where the entity object is accessed from
         protected CloudTableClient _tableClient;
-        protected string _rowKey;
-        protected string _partitionKey;
         private string _entityTableName;
 
+        // The all important entity object which is null
+        // until needed
+        private TEntity _storage;
+        
         #region Constructors
 
+        // Load rowkey and partition key from URN
         public AzureObjectWrapper(Uri urn, CloudTableClient tableClient, string entityTableName)
         {
             _rowKey = urn.ParseRowKey(tableClient, out _partitionKey);
@@ -31,6 +38,7 @@ namespace JoshCodes.Persistence.Azure.Sql
             _entityTableName = entityTableName;
         }
 
+        // Provide row and partition key directly
         public AzureObjectWrapper(string key, string partitionKey, CloudTableClient tableClient, string entityTableName)
         {
             this._rowKey = key;
@@ -39,6 +47,7 @@ namespace JoshCodes.Persistence.Azure.Sql
             this._entityTableName = entityTableName;
         }
 
+        // Initialize with storage object already accessed
         public AzureObjectWrapper(TEntity storage, CloudTableClient tableClient, string entityTableName)
         {
             this._storage = storage;
@@ -48,6 +57,8 @@ namespace JoshCodes.Persistence.Azure.Sql
             this._entityTableName = entityTableName;
         }
 
+        // Initialize and create a storage object (this one's a little weird and should
+        // probably be in Object Store.
         public delegate TEntity CreateEntity(out string partitionKey, out string rowKey);
 
         public AzureObjectWrapper(CloudTableClient tableClient, string entityTableName, CreateEntity createEntity)
@@ -58,12 +69,9 @@ namespace JoshCodes.Persistence.Azure.Sql
             tableClient.CreateTableIfNotExist(entityTableName);
             var tableServiceContext = tableClient.GetDataServiceContext();
 
-            string rowKey, partitionKey;
-            this._storage = createEntity.Invoke(out partitionKey, out rowKey);
-            this._rowKey = rowKey;
-            this._partitionKey = partitionKey;
-            this._storage.PartitionKey = partitionKey;
-            this._storage.RowKey = rowKey;
+            this._storage = createEntity.Invoke(out this._partitionKey, out this._rowKey);
+            this._storage.PartitionKey = _partitionKey;
+            this._storage.RowKey = _rowKey;
 
             tableServiceContext.AddObject(entityTableName, this._storage);
             tableServiceContext.SaveChanges();
@@ -71,7 +79,7 @@ namespace JoshCodes.Persistence.Azure.Sql
 
         #endregion
 
-        protected TEntity storage
+        protected TEntity Storage
         {
             get
             {
@@ -83,52 +91,29 @@ namespace JoshCodes.Persistence.Azure.Sql
             }
         }
 
-        #region Utility methods
-
-        protected static string GetBaseUriString(CloudTableClient tableClient, string entityTableName)
-        {
-            return tableClient.BaseUri.AbsoluteUri + "/" + entityTableName + "/";
-        }
-
-        protected static string ParseRowKey(Uri id, CloudTableClient tableClient, string entityTableName)
-        {
-            var rowKey = id.AbsoluteUri.Substring(GetBaseUriString(tableClient, entityTableName).Length);
-            return rowKey;
-        }
-
-        protected static T Decode<T>(string value)
-        {
-            if (String.IsNullOrWhiteSpace(value))
-            {
-                return default(T);
-            }
-            var reader = XmlReader.Create(new StringReader(value));
-            var serializer = new DataContractSerializer(typeof(T));
-            T result = (T)serializer.ReadObject(reader);
-            return result;
-        }
-
-        protected static string Encode<T>(T value)
-        {
-            if (EqualityComparer<T>.Default.Equals(value))
-            {
-                return String.Empty;
-            }
-            string serializedString;
-            using (MemoryStream memoryStream = new MemoryStream())
-            using (StreamReader reader = new StreamReader(memoryStream))
-            {
-                DataContractSerializer serializer = new DataContractSerializer(typeof(T));
-                serializer.WriteObject(memoryStream, value);
-                memoryStream.Position = 0;
-                serializedString = reader.ReadToEnd();
-            }
-            return serializedString;
-        }
-
-        #endregion
-
         #region Properties
+
+        public Guid IdGuid
+        {
+            get
+            {
+                Guid guid;
+                if (System.Guid.TryParse(_rowKey, out guid))
+                {
+                    return guid;
+                }
+                if (System.Guid.TryParse(this.Storage.IdGuid, out guid))
+                {
+                    return guid;
+                }
+                return Guid.Empty;
+            }
+        }
+
+        public string IdKey
+        {
+            get { return _rowKey; }
+        }
 
         public Uri IdUrn
         {
@@ -138,30 +123,14 @@ namespace JoshCodes.Persistence.Azure.Sql
             }
         }
 
-        public Guid IdGuid
-        {
-            get
-            {
-                return Guid.Parse(_rowKey);
-            }
-        }
-
-        public string IdKey
-        {
-            get { return _rowKey; }
-        }
-
-        public string Key
-        {
-            get { return _rowKey; }
-        }
-
-        public string Partition
+        protected string Partition
         {
             get { return _partitionKey; }
         }
 
         #endregion
+
+        #region Mutators
 
         protected bool AtomicModification<T>(T requiredValue, T newValue, out T currentValue, Expression<Func<TEntity, T>> propertySelector)
             where T : IComparable<T>
@@ -254,5 +223,51 @@ namespace JoshCodes.Persistence.Azure.Sql
             tableServiceContext.SaveChanges();
         }
 
+        #endregion
+
+        #region Utility methods
+
+        protected static string GetBaseUriString(CloudTableClient tableClient, string entityTableName)
+        {
+            return tableClient.BaseUri.AbsoluteUri + "/" + entityTableName + "/";
+        }
+
+        protected static string ParseRowKey(Uri id, CloudTableClient tableClient, string entityTableName)
+        {
+            var rowKey = id.AbsoluteUri.Substring(GetBaseUriString(tableClient, entityTableName).Length);
+            return rowKey;
+        }
+
+        protected static T Decode<T>(string value)
+        {
+            if (String.IsNullOrWhiteSpace(value))
+            {
+                return default(T);
+            }
+            var reader = XmlReader.Create(new StringReader(value));
+            var serializer = new DataContractSerializer(typeof(T));
+            T result = (T)serializer.ReadObject(reader);
+            return result;
+        }
+
+        protected static string Encode<T>(T value)
+        {
+            if (EqualityComparer<T>.Default.Equals(value))
+            {
+                return String.Empty;
+            }
+            string serializedString;
+            using (MemoryStream memoryStream = new MemoryStream())
+            using (StreamReader reader = new StreamReader(memoryStream))
+            {
+                DataContractSerializer serializer = new DataContractSerializer(typeof(T));
+                serializer.WriteObject(memoryStream, value);
+                memoryStream.Position = 0;
+                serializedString = reader.ReadToEnd();
+            }
+            return serializedString;
+        }
+
+        #endregion
     }
 }
