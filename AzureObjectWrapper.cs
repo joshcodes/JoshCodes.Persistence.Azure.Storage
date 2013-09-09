@@ -227,7 +227,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         
         #region Referenced objects
 
-        [DataContract(Name="ref")]
+        [DataContract(Name="r")]
         private class IdReference
         {
             public IdReference(string rowKey, string partitionKey, string tableName)
@@ -260,7 +260,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             var tableServiceContext = _tableClient.GetDataServiceContext();
             tableServiceContext.IgnoreResourceNotFoundException = true;
             var query = tableServiceContext.CreateQuery<TEntity>(idReference.TableName);
-
+            
             var results = from entity in query
                           where entity.RowKey == idReference.RowKey && entity.PartitionKey == idReference.PartitionKey
                           select entity;
