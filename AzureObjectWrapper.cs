@@ -224,6 +224,69 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         #endregion
+        
+        #region Referenced objects
+
+        [DataContract(Name="ref")]
+        private class IdReference
+        {
+            public IdReference(string rowKey, string partitionKey, string tableName)
+            {
+                this.RowKey = rowKey;
+                this.PartitionKey = partitionKey;
+                this.TableName = tableName;
+            }
+
+            [DataMember(Name="k")]
+            public string RowKey { get; set; }
+
+            [DataMember(Name = "p")]
+            public string PartitionKey { get; set; }
+            
+            [DataMember(Name = "t")]
+            public string TableName { get; set; }
+        }
+
+        protected delegate TWrapper GetWrapperFromEntityDelegate<TEntity, TWrapper>(TEntity entity)
+            where TEntity : Entity
+            where TWrapper : AzureObjectWrapper<TEntity>;
+
+        protected TWrapper GetReferencedObject<TEntity, TWrapper>(string id, GetWrapperFromEntityDelegate<TEntity, TWrapper> converter)
+            where TEntity : Entity
+            where TWrapper : AzureObjectWrapper<TEntity>
+        {
+            var idReference = Decode<IdReference>(id);
+
+            var tableServiceContext = _tableClient.GetDataServiceContext();
+            tableServiceContext.IgnoreResourceNotFoundException = true;
+            var query = tableServiceContext.CreateQuery<TEntity>(idReference.TableName);
+
+            var results = from entity in query
+                          where entity.RowKey == idReference.RowKey && entity.PartitionKey == idReference.PartitionKey
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return converter(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TWrapper);
+        }
+
+        protected string SetReferencedObject<TEntity>(AzureObjectWrapper<TEntity> obj)
+            where TEntity : Entity
+        {
+            var reference = new IdReference(obj._rowKey, obj._partitionKey, obj._entityTableName);
+            var encodedReference = Encode<IdReference>(reference);
+            return encodedReference;
+        }
+
+        #endregion
 
         #region Utility methods
 
