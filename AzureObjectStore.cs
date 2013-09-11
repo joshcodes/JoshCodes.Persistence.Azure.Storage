@@ -9,25 +9,41 @@ using Microsoft.WindowsAzure.StorageClient;
 
 using JoshCodes.Persistence.Azure.Storage.Extensions;
 using System.Net;
+using System.Linq.Expressions;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
-    public class AzureObjectStore<TDefine, TWrapper, TEntity>
+    public abstract class AzureObjectStore<TDefine, TWrapper, TEntity>
         where TEntity : Entity
         where TWrapper : AzureObjectWrapper<TEntity>, TDefine
     {
-        protected delegate TWrapper CreateObjectStore(TEntity entity);
+        protected abstract TWrapper CreateObjectStore(TEntity entity);
 
         protected CloudTableClient _tableClient;
         protected string _entityTableName;
-        protected CreateObjectStore _createObjectStore;
 
-        protected AzureObjectStore(CloudTableClient tableClient, string entityTableName, CreateObjectStore createObjectStore)
+        protected AzureObjectStore(CloudTableClient tableClient, string entityTableName)
         {
             _tableClient = tableClient;
             _entityTableName = entityTableName;
-            _createObjectStore = createObjectStore;
         }
+
+        #region Creation
+
+        public void Create(TEntity entity, string rowKey, string partitionKey)
+        {
+            _tableClient.CreateTableIfNotExist(_entityTableName);
+            var tableServiceContext = _tableClient.GetDataServiceContext();
+
+            // TODO: Exceptions when row / partition keys are empty
+            entity.RowKey = rowKey;
+            entity.PartitionKey = partitionKey;
+
+            tableServiceContext.AddObject(_entityTableName, entity);
+            tableServiceContext.SaveChanges();
+        }
+
+        #endregion
 
         #region Querying
 
@@ -57,7 +73,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             {
                 foreach (var result in results)
                 {
-                    return _createObjectStore(result);
+                    return CreateObjectStore(result);
                 }
             }
             catch (System.Data.Services.Client.DataServiceQueryException)
@@ -84,7 +100,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             {
                 foreach (var result in results)
                 {
-                    return _createObjectStore(result);
+                    return CreateObjectStore(result);
                 }
             }
             catch (System.Data.Services.Client.DataServiceQueryException)
@@ -102,8 +118,60 @@ namespace JoshCodes.Persistence.Azure.Storage
             var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
             var executedQuery = query.Execute();
             var results = from entity in executedQuery
-                          select _createObjectStore.Invoke(entity);
+                          select CreateObjectStore(entity);
             return results;
+        }
+
+        #endregion
+
+        #region Referencing 
+        
+        public TWrapper GetReferencedObject(AzureObjectReference idRef)
+        {
+            var tableServiceContext = _tableClient.GetDataServiceContext();
+            tableServiceContext.IgnoreResourceNotFoundException = true;
+            var query = tableServiceContext.CreateQuery<TEntity>(idRef.TableName);
+
+            var results = from entity in query
+                          where entity.RowKey == idRef.RowKey && entity.PartitionKey == idRef.PartitionKey
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return CreateObjectStore(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TWrapper);
+        }
+
+        protected IEnumerable<TWrapper> QueryOn<TModelObjectEntity>(
+            JoshCodes.Web.Models.Persistence.IDefineModelObject referencedModelObject,
+            Expression<Func<TEntity, string>> propertyExpr)
+            where TModelObjectEntity : Entity
+        {
+            var idRef = referencedModelObject.GetAzureObjectReference<TModelObjectEntity>();
+            var idRefEnc = Entity.Encode(idRef);
+            var right = Expression.Constant(idRefEnc, typeof(string));
+            var whereComparison = Expression.Equal(propertyExpr.Body, right);
+            var whereCondition = Expression.Lambda<Func<TEntity, bool>>(whereComparison, propertyExpr.Parameters);
+
+            MethodCallExpression whereCallExpression = Expression.Call(
+                typeof(Queryable),
+                "Where",
+                new Type[] { typeof(TEntity) },
+                Query.Expression,
+                whereCondition);
+
+            var query = Query.Provider.CreateQuery<TEntity>(whereCallExpression);
+            foreach (var entity in query)
+            {
+                yield return CreateObjectStore(entity);
+            }
         }
 
         #endregion

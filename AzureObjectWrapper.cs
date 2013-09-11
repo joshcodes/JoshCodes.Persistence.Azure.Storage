@@ -51,30 +51,21 @@ namespace JoshCodes.Persistence.Azure.Storage
         public AzureObjectWrapper(TEntity storage, CloudTableClient tableClient, string entityTableName)
         {
             this._storage = storage;
+
             this._rowKey = storage.RowKey;
+            if (String.IsNullOrWhiteSpace(this._rowKey))
+            {
+                throw new ArgumentOutOfRangeException("Storage row key is null");
+            }
+
             this._partitionKey = storage.PartitionKey;
+            if (String.IsNullOrWhiteSpace(this._rowKey))
+            {
+                throw new ArgumentOutOfRangeException("Storage partition key is null");
+            }
+
             this._tableClient = tableClient;
             this._entityTableName = entityTableName;
-        }
-
-        // Initialize and create a storage object (this one's a little weird and should
-        // probably be in Object Store.
-        public delegate TEntity CreateEntity(out string partitionKey, out string rowKey);
-
-        public AzureObjectWrapper(CloudTableClient tableClient, string entityTableName, CreateEntity createEntity)
-        {
-            this._tableClient = tableClient;
-            this._entityTableName = entityTableName;
-
-            tableClient.CreateTableIfNotExist(entityTableName);
-            var tableServiceContext = tableClient.GetDataServiceContext();
-
-            this._storage = createEntity.Invoke(out this._partitionKey, out this._rowKey);
-            this._storage.PartitionKey = _partitionKey;
-            this._storage.RowKey = _rowKey;
-
-            tableServiceContext.AddObject(entityTableName, this._storage);
-            tableServiceContext.SaveChanges();
         }
 
         #endregion
@@ -123,7 +114,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             }
         }
 
-        protected string Partition
+        public string IdPartition
         {
             get { return _partitionKey; }
         }
@@ -227,63 +218,10 @@ namespace JoshCodes.Persistence.Azure.Storage
         
         #region Referenced objects
 
-        [DataContract(Name="r")]
-        private class IdReference
+        internal AzureObjectReference GetAzureObjectReference()
         {
-            public IdReference(string rowKey, string partitionKey, string tableName)
-            {
-                this.RowKey = rowKey;
-                this.PartitionKey = partitionKey;
-                this.TableName = tableName;
-            }
-
-            [DataMember(Name="k")]
-            public string RowKey { get; set; }
-
-            [DataMember(Name = "p")]
-            public string PartitionKey { get; set; }
-            
-            [DataMember(Name = "t")]
-            public string TableName { get; set; }
-        }
-
-        protected delegate TWrapper GetWrapperFromEntityDelegate<TEntity, TWrapper>(TEntity entity)
-            where TEntity : Entity
-            where TWrapper : AzureObjectWrapper<TEntity>;
-
-        protected TWrapper GetReferencedObject<TEntity, TWrapper>(string id, GetWrapperFromEntityDelegate<TEntity, TWrapper> converter)
-            where TEntity : Entity
-            where TWrapper : AzureObjectWrapper<TEntity>
-        {
-            var idReference = Decode<IdReference>(id);
-
-            var tableServiceContext = _tableClient.GetDataServiceContext();
-            tableServiceContext.IgnoreResourceNotFoundException = true;
-            var query = tableServiceContext.CreateQuery<TEntity>(idReference.TableName);
-            
-            var results = from entity in query
-                          where entity.RowKey == idReference.RowKey && entity.PartitionKey == idReference.PartitionKey
-                          select entity;
-            try
-            {
-                foreach (var result in results)
-                {
-                    return converter(result);
-                }
-            }
-            catch (System.Data.Services.Client.DataServiceQueryException)
-            {
-
-            }
-            return default(TWrapper);
-        }
-
-        protected string SetReferencedObject<TEntity>(AzureObjectWrapper<TEntity> obj)
-            where TEntity : Entity
-        {
-            var reference = new IdReference(obj._rowKey, obj._partitionKey, obj._entityTableName);
-            var encodedReference = Encode<IdReference>(reference);
-            return encodedReference;
+            var reference = new AzureObjectReference(this._rowKey, this._partitionKey, this._entityTableName);
+            return reference;
         }
 
         #endregion
