@@ -218,7 +218,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         
         #region Referenced objects
 
-        internal AzureObjectReference GetAzureObjectReference()
+        public AzureObjectReference GetAzureObjectReference()
         {
             var reference = new AzureObjectReference(this._rowKey, this._partitionKey, this._entityTableName);
             return reference;

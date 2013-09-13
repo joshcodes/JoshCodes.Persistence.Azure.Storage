@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Linq;
+
+using Microsoft.WindowsAzure.StorageClient;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -14,6 +17,18 @@ namespace JoshCodes.Persistence.Azure.Storage
             var azureModelObject = (AzureObjectWrapper<TModelObjectEntity>)modelObject;
             var reference = azureModelObject.GetAzureObjectReference();
             return reference;
+        }
+
+        public static TWrapper GetObject<TDefine, TWrapper, TEntity>(
+            this AzureObjectReference idRef, AzureObjectStore<TDefine, TWrapper, TEntity> store)
+            where TEntity : Entity
+            where TWrapper : AzureObjectWrapper<TEntity>, TDefine 
+        {
+            if (idRef == null)
+            {
+                return default(TWrapper);
+            }
+            return store.GetReferencedObject(idRef);
         }
     }
 }

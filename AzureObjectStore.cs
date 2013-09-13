@@ -110,6 +110,11 @@ namespace JoshCodes.Persistence.Azure.Storage
             return default(TDefine);
         }
 
+        public TDefine FindByGuid(Guid guid)
+        {
+            return FindByKey(guid.ToString());
+        }
+
         public IEnumerable<TDefine> All()
         {
             _tableClient.CreateTableIfNotExist(_entityTableName);
@@ -128,6 +133,11 @@ namespace JoshCodes.Persistence.Azure.Storage
         
         public TWrapper GetReferencedObject(AzureObjectReference idRef)
         {
+            if (idRef == null)
+            {
+                return default(TWrapper);
+            }
+
             var tableServiceContext = _tableClient.GetDataServiceContext();
             tableServiceContext.IgnoreResourceNotFoundException = true;
             var query = tableServiceContext.CreateQuery<TEntity>(idRef.TableName);

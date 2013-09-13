@@ -22,5 +22,10 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         [DataMember(Name = "t")]
         public string TableName { get; set; }
+
+        public static System.Collections.Generic.IEqualityComparer<AzureObjectReference> GetComparer()
+        {
+            return JoshCodes.Core.Equality<AzureObjectReference>.CreateComparer((azureObjectReference) => azureObjectReference.RowKey);
+        }
     }
 }
