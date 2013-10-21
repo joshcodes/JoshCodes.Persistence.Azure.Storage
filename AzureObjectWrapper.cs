@@ -123,6 +123,22 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         #region Mutators
 
+        public DateTime UpdatedAt
+        {
+            get
+            {
+                return Storage.UpdatedAt;
+            }
+            set
+            {
+                EditableStorage((item) =>
+                {
+                    item.UpdatedAt = value;
+                    return true;
+                });
+            }
+        }
+
         protected bool AtomicModification<T>(T requiredValue, T newValue, out T currentValue, Expression<Func<TEntity, T>> propertySelector)
             where T : IComparable<T>
         {
