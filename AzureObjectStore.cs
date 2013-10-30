@@ -112,7 +112,22 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         public TDefine FindByGuid(Guid guid)
         {
-            return FindByKey(guid.ToString());
+            var guidString = guid.ToString();
+            var results = from entity in Query
+                          where entity.IdGuid == guidString
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return CreateObjectStore(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TDefine);
         }
 
         public IEnumerable<TDefine> All()
