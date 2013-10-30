@@ -6,10 +6,24 @@ using System.Collections.Generic;
 
 using Microsoft.WindowsAzure.StorageClient;
 
+using JoshCodes.Web.Models.Domain;
+
 namespace JoshCodes.Persistence.Azure.Storage
 {
     public class Entity : TableServiceEntity
     {
+        public Entity()
+        {
+        }
+
+        public Entity(DomainId id)
+        {
+            this.IdKey = id.Key;
+            this.IdGuid = id.Guid.ToString();
+            this.IdUrn = id.Urn != null ?
+                id.Urn.AbsoluteUri : null;
+        }
+
         public string IdGuid { get; set; }
 
         public string IdKey { get; set; }
