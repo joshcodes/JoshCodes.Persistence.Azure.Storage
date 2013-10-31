@@ -31,9 +31,10 @@ namespace JoshCodes.Persistence.Azure.Storage
         #region Constructors
 
         // Load rowkey and partition key from URN
-        public AzureObjectWrapper(Uri urn, CloudTableClient tableClient, string entityTableName)
+        public AzureObjectWrapper(Guid key, CloudTableClient tableClient, string entityTableName)
         {
-            _rowKey = urn.ParseRowKey(tableClient, out _partitionKey);
+            _rowKey = Entity.BuildRowKey(key);
+            _partitionKey = Entity.BuildPartitionKey(_rowKey);
             _tableClient = tableClient;
             _entityTableName = entityTableName;
         }
@@ -84,60 +85,41 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         #region Properties
 
-        public Guid IdGuid
+        public Guid Key
         {
             get
             {
-                Guid guid;
-                if (System.Guid.TryParse(_rowKey, out guid))
-                {
-                    return guid;
-                }
-                if (System.Guid.TryParse(this.Storage.IdGuid, out guid))
-                {
-                    return guid;
-                }
-                return Guid.Empty;
+                return this.Storage.GetKey();
             }
         }
 
-        public string IdKey
-        {
-            get { return _rowKey; }
-        }
-
-        public Uri IdUrn
+        public DateTime LastModified
         {
             get
             {
-                return this.BuildUrn(_rowKey, _partitionKey, _tableClient);
-            }
-        }
-
-        public string IdPartition
-        {
-            get { return _partitionKey; }
-        }
-
-        #endregion
-
-        #region Mutators
-
-        public DateTime UpdatedAt
-        {
-            get
-            {
-                return Storage.UpdatedAt;
+                return Storage.LastModified;
             }
             set
             {
                 EditableStorage((item) =>
                 {
-                    item.UpdatedAt = value;
+                    item.LastModified = value;
                     return true;
                 });
             }
         }
+
+        public string[] UrnNamespace
+        {
+            get
+            {
+                return new string[] { this._partitionKey, this._rowKey };
+            }
+        }
+
+        #endregion
+
+        #region Mutators
 
         protected bool AtomicModification<T>(T requiredValue, T newValue, out T currentValue, Expression<Func<TEntity, T>> propertySelector)
             where T : IComparable<T>

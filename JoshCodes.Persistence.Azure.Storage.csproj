@@ -58,6 +58,7 @@
     </Compile>
     <Compile Include="ReferenceExtensions.cs" />
     <Compile Include="Settings.cs" />
+    <Compile Include="Extensions\CloudTableClientExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\JoshCodes.Core\JoshCodes.Core.csproj">

@@ -4,12 +4,13 @@ using System.Linq;
 using System.Xml;
 using System.IO;
 using System.Runtime.Serialization;
+using System.Net;
+using System.Linq.Expressions;
 
 using Microsoft.WindowsAzure.StorageClient;
 
 using JoshCodes.Persistence.Azure.Storage.Extensions;
-using System.Net;
-using System.Linq.Expressions;
+using JoshCodes.Web.Models.Domain;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -30,14 +31,20 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         #region Creation
 
-        public void Create(TEntity entity, string rowKey, string partitionKey)
+        public void Create(TEntity entity)
         {
+            // Sanity check
+            if (String.IsNullOrWhiteSpace(entity.RowKey))
+            {
+                throw new ArgumentException("entity.RowKey is empty", "entity.RowKey");
+            }
+            if (String.IsNullOrWhiteSpace(entity.PartitionKey))
+            {
+                throw new ArgumentException("entity.PartitionKey is empty", "entity.PartitionKey");
+            }
+
             _tableClient.CreateTableIfNotExist(_entityTableName);
             var tableServiceContext = _tableClient.GetDataServiceContext();
-
-            // TODO: Exceptions when row / partition keys are empty
-            entity.RowKey = rowKey;
-            entity.PartitionKey = partitionKey;
 
             tableServiceContext.AddObject(_entityTableName, entity);
             tableServiceContext.SaveChanges();
@@ -83,51 +90,18 @@ namespace JoshCodes.Persistence.Azure.Storage
             return default(TDefine);
         }
 
-        public TDefine FindByUrn(Uri urn)
+        public TDefine Find(Uri urn)
         {
             string partitionKey;
             var rowKey = urn.ParseRowKey(_tableClient, out partitionKey);
-
             return Find(partitionKey, rowKey);
         }
 
-        public TDefine FindByKey(string key)
+        public TDefine Find(Guid guid)
         {
-            var results = from entity in Query
-                          where entity.RowKey == key
-                          select entity;
-            try
-            {
-                foreach (var result in results)
-                {
-                    return CreateObjectStore(result);
-                }
-            }
-            catch (System.Data.Services.Client.DataServiceQueryException)
-            {
-
-            }
-            return default(TDefine);
-        }
-
-        public TDefine FindByGuid(Guid guid)
-        {
-            var guidString = guid.ToString();
-            var results = from entity in Query
-                          where entity.IdGuid == guidString
-                          select entity;
-            try
-            {
-                foreach (var result in results)
-                {
-                    return CreateObjectStore(result);
-                }
-            }
-            catch (System.Data.Services.Client.DataServiceQueryException)
-            {
-
-            }
-            return default(TDefine);
+            var rowKey = Entity.BuildRowKey(guid);
+            var partitionKey = Entity.BuildPartitionKey(rowKey);
+            return Find(partitionKey, rowKey);
         }
 
         public IEnumerable<TDefine> All()

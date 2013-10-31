@@ -12,27 +12,44 @@ namespace JoshCodes.Persistence.Azure.Storage
 {
     public class Entity : TableServiceEntity
     {
+        private const string GuidFormat = "N";
+
         public Entity()
         {
         }
 
-        public Entity(DomainId id)
+        public Entity(Guid key, DateTime lastModified)
         {
-            this.IdKey = id.Key;
-            this.IdGuid = id.Guid.ToString();
-            this.IdUrn = id.Urn != null ?
-                id.Urn.AbsoluteUri : null;
+            if (key == default(Guid) || key == Guid.Empty) // Likely the same thing
+            {
+                throw new ArgumentException("key value must be set", "key");
+            }
+            if (lastModified == default(DateTime))
+            {
+                throw new ArgumentException("Last Modified value must be set", "lastModified");
+            }
+
+            this.RowKey = Entity.BuildRowKey(key);
+            this.PartitionKey = Entity.BuildPartitionKey(this.RowKey);
+            this.LastModified = lastModified;
         }
 
-        public string IdGuid { get; set; }
+        public Guid GetKey()
+        {
+            return Guid.ParseExact(this.RowKey, GuidFormat);
+        }
 
-        public string IdKey { get; set; }
+        public DateTime LastModified { get; set; }
 
-        public string IdUrn { get; set; }
+        internal static string BuildRowKey(Guid rowKey)
+        {
+            return rowKey.ToString(GuidFormat);
+        }
 
-        public DateTime UpdatedAt { get; set; }
-
-        public DateTime CreatedAt { get; set; }
+        internal static string BuildPartitionKey(string rowKey)
+        {
+            return (rowKey.GetHashCode() % 13).ToString();
+        }
 
         #region Encoding / Decoding
 
