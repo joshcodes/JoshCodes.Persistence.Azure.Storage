@@ -48,6 +48,7 @@
     <Compile Include="AzureObjectStore.cs" />
     <Compile Include="AzureObjectWrapper.cs" />
     <Compile Include="Entity.cs" />
+    <Compile Include="Exceptions\DuplicateResourceException.cs" />
     <Compile Include="Exceptions\InvalidLinkedObjectException.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

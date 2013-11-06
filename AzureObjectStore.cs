@@ -31,7 +31,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         #region Creation
 
-        public void Create(TEntity entity)
+        public virtual void Create(TEntity entity)
         {
             // Sanity check
             if (String.IsNullOrWhiteSpace(entity.RowKey))
@@ -46,8 +46,19 @@ namespace JoshCodes.Persistence.Azure.Storage
             _tableClient.CreateTableIfNotExist(_entityTableName);
             var tableServiceContext = _tableClient.GetDataServiceContext();
 
-            tableServiceContext.AddObject(_entityTableName, entity);
-            tableServiceContext.SaveChanges();
+            try
+            {
+                tableServiceContext.AddObject(_entityTableName, entity);
+                tableServiceContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                if (ex.IsProblemResourceAlreadyExists())
+                {
+                    throw new DuplicateResourceException();
+                }
+                throw;
+            }
         }
 
         #endregion
@@ -102,6 +113,30 @@ namespace JoshCodes.Persistence.Azure.Storage
             var rowKey = Entity.BuildRowKey(guid);
             var partitionKey = Entity.BuildPartitionKey(rowKey);
             return Find(partitionKey, rowKey);
+        }
+
+        public TDefine Find(DomainId id)
+        {
+            return Find(id.Guid);
+        }
+
+        public TDefine Find(string rowKey)
+        {
+            var results = from entity in Query
+                          where entity.RowKey == rowKey
+                          select entity;
+            try
+            {
+                foreach (var result in results)
+                {
+                    return CreateObjectStore(result);
+                }
+            }
+            catch (System.Data.Services.Client.DataServiceQueryException)
+            {
+
+            }
+            return default(TDefine);
         }
 
         public IEnumerable<TDefine> All()

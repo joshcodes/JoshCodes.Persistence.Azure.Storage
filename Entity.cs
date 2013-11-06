@@ -34,9 +34,26 @@ namespace JoshCodes.Persistence.Azure.Storage
             this.LastModified = lastModified;
         }
 
+        public Entity(string key, DateTime lastModified)
+        {
+            if (String.IsNullOrWhiteSpace(key))
+            {
+                throw new ArgumentException("key value must be set", "key");
+            }
+            if (lastModified == default(DateTime))
+            {
+                throw new ArgumentException("Last Modified value must be set", "lastModified");
+            }
+
+            this.RowKey = key;
+            this.PartitionKey = Entity.BuildPartitionKey(this.RowKey);
+            this.LastModified = lastModified;
+        }
+
         public Guid GetKey()
         {
-            return Guid.ParseExact(this.RowKey, GuidFormat);
+            //TODO: return Guid.ParseExact(this.RowKey, GuidFormat);
+            return Guid.Parse(this.RowKey);
         }
 
         public DateTime LastModified { get; set; }
