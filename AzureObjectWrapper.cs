@@ -185,6 +185,7 @@ namespace JoshCodes.Persistence.Azure.Storage
                     {
                         tableServiceContext.UpdateObject(storage);
                         tableServiceContext.SaveChanges();
+                        this._storage = storage;
                     }
                     return;
                 }
