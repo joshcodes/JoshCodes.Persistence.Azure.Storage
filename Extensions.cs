@@ -92,6 +92,10 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
 
         public static bool IsProblemResourceAlreadyExists(this Exception exception)
         {
+            if (exception is JoshCodes.Persistence.Azure.Storage.DuplicateResourceException)
+            {
+                return true;
+            }
             var conflictFailedCode = (int)System.Net.HttpStatusCode.Conflict;
             if (exception is System.Data.Services.Client.DataServiceRequestException)
             {
