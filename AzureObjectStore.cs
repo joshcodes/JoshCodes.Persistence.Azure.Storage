@@ -120,6 +120,12 @@ namespace JoshCodes.Persistence.Azure.Storage
             return Find(id.Guid);
         }
 
+        public TDefine FindByHashedRowkey(string rowKey)
+        {
+            var paritionKey = Entity.BuildPartitionKey(rowKey);
+            return Find(paritionKey, rowKey);
+        }
+
         public TDefine Find(string rowKey)
         {
             var results = from entity in Query
