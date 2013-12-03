@@ -213,6 +213,11 @@ namespace JoshCodes.Persistence.Azure.Storage
             tableServiceContext.SaveChanges();
         }
 
+        public virtual bool Validate()
+        {
+            return true;
+        }
+
         #endregion
         
         #region Referenced objects
