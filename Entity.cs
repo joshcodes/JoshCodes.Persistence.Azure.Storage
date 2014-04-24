@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Microsoft.WindowsAzure.StorageClient;
 
 using JoshCodes.Web.Models.Domain;
+using System.Diagnostics.Contracts;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -63,9 +64,43 @@ namespace JoshCodes.Persistence.Azure.Storage
             return rowKey.ToString(GuidFormat);
         }
 
+        private static int GetHashCode(string str)
+        {
+            unsafe
+            {
+                fixed (char* src = str)
+                {
+                    Contract.Assert(src[str.Length] == '\0', "src[this.Length] == '\\0'");
+                    Contract.Assert(((int)src) % 4 == 0, "Managed string should start at 4 bytes boundary");
+
+                    int hash1 = (5381 << 16) + 5381;
+                    int hash2 = hash1;
+
+                    // 32 bit machines. 
+                    int* pint = (int*)src;
+                    int len = str.Length;
+                    while (len > 2)
+                    {
+                        hash1 = ((hash1 << 5) + hash1 + (hash1 >> 27)) ^ pint[0];
+                        hash2 = ((hash2 << 5) + hash2 + (hash2 >> 27)) ^ pint[1];
+                        pint += 2;
+                        len -= 4;
+                    }
+
+                    if (len > 0)
+                    {
+                        hash1 = ((hash1 << 5) + hash1 + (hash1 >> 27)) ^ pint[0];
+                    }
+                    return hash1 + (hash2 * 1566083941);
+                }
+            }
+        }
+
         internal static string BuildPartitionKey(string rowKey)
         {
-            return (rowKey.GetHashCode() % 13).ToString();
+            int hashCode = GetHashCode(rowKey);
+
+            return (hashCode % 13).ToString();
         }
 
         #region Encoding / Decoding

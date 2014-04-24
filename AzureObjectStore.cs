@@ -111,8 +111,13 @@ namespace JoshCodes.Persistence.Azure.Storage
         public TDefine Find(Guid guid)
         {
             var rowKey = Entity.BuildRowKey(guid);
-            var partitionKey = Entity.BuildPartitionKey(rowKey);
-            return Find(partitionKey, rowKey);
+            var partitionKey = Entity.BuildPartitionKey(rowKey.ToString());
+            var entity = Find(partitionKey, rowKey);
+            if(entity != null)
+            {
+                return entity;
+            }
+            return default(TDefine);
         }
 
         public TDefine Find(DomainId id)
