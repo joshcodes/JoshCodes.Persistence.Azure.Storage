@@ -23,10 +23,12 @@ namespace JoshCodes.Persistence.Azure.Storage
         protected CloudTableClient _tableClient;
         protected string _entityTableName;
 
-        protected AzureObjectStore(CloudTableClient tableClient, string entityTableName)
+        protected AzureObjectStore(CloudTableClient tableClient, string entityTableName = null)
         {
             _tableClient = tableClient;
-            _entityTableName = entityTableName;
+            _entityTableName = String.IsNullOrWhiteSpace(entityTableName)?
+                typeof(TEntity).Name.ToLower() :
+                entityTableName;
         }
 
         #region Creation
@@ -108,7 +110,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             return Find(partitionKey, rowKey);
         }
 
-        public TDefine Find(Guid guid)
+        public virtual TDefine Find(Guid guid)
         {
             var rowKey = Entity.BuildRowKey(guid);
             var partitionKey = Entity.BuildPartitionKey(rowKey.ToString());

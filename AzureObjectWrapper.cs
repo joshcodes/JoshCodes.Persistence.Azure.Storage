@@ -49,7 +49,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         // Initialize with storage object already accessed
-        public AzureObjectWrapper(TEntity storage, CloudTableClient tableClient, string entityTableName)
+        public AzureObjectWrapper(TEntity storage, CloudTableClient tableClient, string entityTableName = null)
         {
             this._storage = storage;
 
@@ -66,7 +66,9 @@ namespace JoshCodes.Persistence.Azure.Storage
             }
 
             this._tableClient = tableClient;
-            this._entityTableName = entityTableName;
+            this._entityTableName = String.IsNullOrWhiteSpace(entityTableName)?
+                typeof(TEntity).Name.ToLower() :
+                entityTableName;
         }
 
         #endregion
