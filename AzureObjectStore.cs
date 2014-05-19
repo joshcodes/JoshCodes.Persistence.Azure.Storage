@@ -31,7 +31,7 @@ namespace JoshCodes.Persistence.Azure.Storage
                 entityTableName;
         }
 
-        #region Creation
+        #region CUD Operations
 
         public virtual void Create(TEntity entity)
         {
@@ -61,6 +61,16 @@ namespace JoshCodes.Persistence.Azure.Storage
                 }
                 throw;
             }
+        }
+
+        public void DeleteAll()
+        {
+            TableServiceContext serviceContext;
+            foreach (var entity in this.GetQuery(out serviceContext))
+            {
+                serviceContext.DeleteObject(entity);
+            }
+            serviceContext.SaveChanges();
         }
 
         #endregion
@@ -222,7 +232,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         #endregion
-
+        
         private class AutoIncrementStorage : TableServiceEntity
         {
             public long Value { get; set; }
