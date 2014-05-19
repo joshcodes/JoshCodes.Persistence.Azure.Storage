@@ -31,12 +31,14 @@ namespace JoshCodes.Persistence.Azure.Storage
         #region Constructors
 
         // Load rowkey and partition key from URN
-        public AzureObjectWrapper(Guid key, CloudTableClient tableClient, string entityTableName)
+        public AzureObjectWrapper(Guid key, CloudTableClient tableClient, string entityTableName = null)
         {
             _rowKey = Entity.BuildRowKey(key);
             _partitionKey = Entity.BuildPartitionKey(_rowKey);
             _tableClient = tableClient;
-            _entityTableName = entityTableName;
+            _entityTableName = String.IsNullOrWhiteSpace(entityTableName)?
+                typeof(TEntity).Name.ToLower() :
+                entityTableName;;
         }
 
         // Provide row and partition key directly
