@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 
-using Microsoft.WindowsAzure.StorageClient;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
