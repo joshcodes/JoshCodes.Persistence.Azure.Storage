@@ -32,7 +32,6 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         #region CUD Operations
-
         public virtual void Create(TEntity entity)
         {
             // Sanity check
@@ -51,6 +50,36 @@ namespace JoshCodes.Persistence.Azure.Storage
             try
             {
                 tableServiceContext.AddObject(_entityTableName, entity);
+                tableServiceContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                if (ex.IsProblemResourceAlreadyExists())
+                {
+                    throw new DuplicateResourceException();
+                }
+                throw;
+            }
+        }
+
+        public virtual void Update(TEntity entity)
+        {
+            // Sanity check
+            if (String.IsNullOrWhiteSpace(entity.RowKey))
+            {
+                throw new ArgumentException("entity.RowKey is empty", "entity.RowKey");
+            }
+            if (String.IsNullOrWhiteSpace(entity.PartitionKey))
+            {
+                throw new ArgumentException("entity.PartitionKey is empty", "entity.PartitionKey");
+            }
+
+            _tableClient.CreateTableIfNotExist(_entityTableName);
+            var tableServiceContext = _tableClient.GetDataServiceContext();
+
+            try
+            {
+                tableServiceContext.UpdateObject(entity);
                 tableServiceContext.SaveChanges();
             }
             catch (Exception ex)
@@ -252,7 +281,7 @@ namespace JoshCodes.Persistence.Azure.Storage
                 try
                 {
                     long autoIncrementValue;
-                    if (resultsList.Count() == 0)
+                    if (!resultsList.Any())
                     {
                         tableClient.CreateTableIfNotExist(entityTableName);
                         var storage = new AutoIncrementStorage()
