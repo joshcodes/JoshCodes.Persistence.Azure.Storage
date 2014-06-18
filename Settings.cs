@@ -10,13 +10,23 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         private static string GetStorageSetting()
         {
-            var storageSetting = System.Configuration.ConfigurationManager.AppSettings["azure.cloud_storage-storage_setting"];
+            return GetStorageSetting("azure.cloud_storage-storage_setting");
+        }
+
+        private static string GetStorageSetting(string appSettingsKey)
+        {
+            var storageSetting = System.Configuration.ConfigurationManager.AppSettings[appSettingsKey];
             return storageSetting;
         }
 
         public static Microsoft.WindowsAzure.CloudStorageAccount StorageAccount()
         {
-            var storageSetting = GetStorageSetting();
+            return StorageAccount(GetStorageSetting());
+        }
+
+        public static Microsoft.WindowsAzure.CloudStorageAccount StorageAccount(string appSettingsKey)
+        {
+            var storageSetting = GetStorageSetting(appSettingsKey);
             var storageAccount = Microsoft.WindowsAzure.CloudStorageAccount.Parse(storageSetting);
             return storageAccount;
         }
