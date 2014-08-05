@@ -15,6 +15,10 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         private static string GetStorageSetting(string appSettingsKey)
         {
+            if(String.IsNullOrWhiteSpace(appSettingsKey))
+            {
+                return GetStorageSetting();
+            }
             var storageSetting = System.Configuration.ConfigurationManager.AppSettings[appSettingsKey];
             return storageSetting;
         }

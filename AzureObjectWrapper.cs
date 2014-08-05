@@ -163,6 +163,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             return success;
         }
 
+        // TODO: Change this to return null entity if do not save
         protected void EditableStorage(Func<TEntity, bool> callback)
         {
             this.EditableStorage((entity, isRetry) =>
