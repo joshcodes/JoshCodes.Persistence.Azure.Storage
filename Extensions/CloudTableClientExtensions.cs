@@ -1,12 +1,11 @@
 ﻿using System;
-
-using Microsoft.WindowsAzure.StorageClient;
-
 using JoshCodes.Persistence.Azure.Storage.Extensions;
+using Microsoft.WindowsAzure.Storage.Table;
+
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
-    internal class UniquenessEntity : TableServiceEntity
+    internal class UniquenessEntity : TableEntity//TableServiceEntity
     {
 
     }
@@ -16,7 +15,10 @@ namespace JoshCodes.Persistence.Azure.Storage
         public static bool TryRegisterUnique(this CloudTableClient tableClient, string uniqueId, string ns)
         {
             var entityTableName = typeof(UniquenessEntity).Name;
-            tableClient.CreateTableIfNotExist(entityTableName);
+            var table = tableClient.GetTableReference(entityTableName);
+            table.CreateIfNotExists();
+
+
 
             var entity = new UniquenessEntity()
             {
@@ -26,9 +28,8 @@ namespace JoshCodes.Persistence.Azure.Storage
 
             try
             {
-                var tableServiceContext = tableClient.GetDataServiceContext();
-                tableServiceContext.AddObject(entityTableName, entity);
-                tableServiceContext.SaveChanges();
+                TableOperation insertOperation = TableOperation.Insert(entity);
+                table.Execute(insertOperation);
                 return true;
             }
             catch (Exception ex)

@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Linq;
 
-using Microsoft.WindowsAzure.StorageClient;
-
 using JoshCodes.Core.Urns.Extensions;
 using JoshCodes.Web.Attributes.Extensions;
-
 using System.Linq.Expressions;
+using Microsoft.WindowsAzure.Storage.Table;
+using Microsoft.WindowsAzure.Storage;
 
 namespace JoshCodes.Persistence.Azure.Storage.Extensions
 {
@@ -82,10 +81,13 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
                 var dsce = (System.Data.Services.Client.DataServiceClientException)exception;
                 return (dsce.StatusCode == preconditionFailedCode);
             }
-            if(exception is StorageClientException)
+            if (exception is StorageException)
             {
-                var sce = (StorageClientException)exception;
-                return (sce.StatusCode == System.Net.HttpStatusCode.PreconditionFailed);
+                var sce = (StorageException)exception;
+
+                var reqestInfo = sce.RequestInformation.ExtendedErrorInformation;
+
+                return (reqestInfo.ErrorCode == System.Net.HttpStatusCode.PreconditionFailed.ToString());
             }
             return false;
         }
@@ -108,10 +110,15 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
                 var dsce = (System.Data.Services.Client.DataServiceClientException)exception;
                 return (dsce.StatusCode == conflictFailedCode);
             }
-            if (exception is StorageClientException)
+            if (exception is StorageException)
             {
-                var sce = (StorageClientException)exception;
-                return (sce.StatusCode == System.Net.HttpStatusCode.Conflict);
+                var sce = (StorageException)exception;
+
+                var reqestInfo = sce.RequestInformation.ExtendedErrorInformation;
+
+                return (reqestInfo.ErrorCode == System.Net.HttpStatusCode.Conflict.ToString());
+
+
             }
             return false;
         }
@@ -119,10 +126,10 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
         public static bool AtomicModification<TEntity, TValue>(
             this TEntity entity,
             TValue requiredValue, TValue newValue, out TValue currentValue,
-            TableServiceContext tableServiceContext,
+            CloudTableClient tableClient,
             Expression<Func<TEntity, TValue>> propertySelector)
             where TValue : IComparable<TValue>
-            where TEntity : TableServiceEntity
+            where TEntity : TableEntity//TableServiceEntity
         {
             // check the the object is in the requested state
             currentValue = propertySelector.Compile().Invoke(entity);
@@ -138,8 +145,9 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
 
             try
             {
-                tableServiceContext.UpdateObject(entity);
-                tableServiceContext.SaveChanges();
+                var table = tableClient.GetTableReference(typeof(TEntity).Name.ToLower());
+                TableOperation mergeOperation = TableOperation.Merge(entity);
+                table.Execute(mergeOperation);
                 currentValue = newValue;
                 return true;
             }
@@ -158,8 +166,8 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
             Func<TEntity, bool> conditionForExecution,
             Action<TEntity> updateAction,
             Action<TEntity> onSuccess,
-            TableServiceContext tableServiceContext)
-            where TEntity : TableServiceEntity
+            CloudTableClient tableClient)
+            where TEntity : TableEntity//TableServiceEntity
         {
             // check the the object is in the requested state
             if (!conditionForExecution(entity))
@@ -171,8 +179,9 @@ namespace JoshCodes.Persistence.Azure.Storage.Extensions
 
             try
             {
-                tableServiceContext.UpdateObject(entity);
-                tableServiceContext.SaveChanges();
+                var table = tableClient.GetTableReference(typeof(TEntity).Name.ToLower());
+                TableOperation mergeOperation = TableOperation.Merge(entity);
+                table.Execute(mergeOperation);
                 onSuccess(entity);
                 return true;
             }

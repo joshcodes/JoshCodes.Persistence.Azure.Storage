@@ -3,15 +3,13 @@ using System.Xml;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Collections.Generic;
-
-using Microsoft.WindowsAzure.StorageClient;
-
-using JoshCodes.Web.Models.Domain;
 using System.Diagnostics.Contracts;
+using Microsoft.WindowsAzure.Storage.Table;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
-    public class Entity : TableServiceEntity
+    //public class Entity<T> where T : TableEntity, new()//TableServiceEntity
+    public class Entity: TableEntity
     {
         private const string GuidFormat = "N";
 
@@ -32,7 +30,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
             this.RowKey = Entity.BuildRowKey(key);
             this.PartitionKey = Entity.BuildPartitionKey(this.RowKey);
-            this.LastModified = lastModified;
+            this.Timestamp = lastModified;
         }
 
         public Entity(string key, DateTime lastModified)
@@ -48,7 +46,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
             this.RowKey = key;
             this.PartitionKey = Entity.BuildPartitionKey(this.RowKey);
-            this.LastModified = lastModified;
+            this.Timestamp = lastModified;
         }
 
         public Guid GetKey()
@@ -57,7 +55,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             return Guid.Parse(this.RowKey);
         }
 
-        public DateTime LastModified { get; set; }
+        //public DateTime LastModified { get; set; }
 
         internal static string BuildRowKey(Guid rowKey)
         {
@@ -143,5 +141,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         #endregion
+
+        public Int32 Value { get; set; }
     }
 }

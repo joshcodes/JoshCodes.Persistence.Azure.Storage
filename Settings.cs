@@ -1,6 +1,5 @@
 ﻿using System;
-
-using Microsoft.WindowsAzure;
+using Microsoft.WindowsAzure.Storage;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -23,15 +22,15 @@ namespace JoshCodes.Persistence.Azure.Storage
             return storageSetting;
         }
 
-        public static Microsoft.WindowsAzure.CloudStorageAccount StorageAccount()
+        public static CloudStorageAccount StorageAccount()
         {
             return StorageAccount(GetStorageSetting());
         }
 
-        public static Microsoft.WindowsAzure.CloudStorageAccount StorageAccount(string appSettingsKey)
+        public static CloudStorageAccount StorageAccount(string appSettingsKey)
         {
             var storageSetting = GetStorageSetting(appSettingsKey);
-            var storageAccount = Microsoft.WindowsAzure.CloudStorageAccount.Parse(storageSetting);
+            var storageAccount = CloudStorageAccount.Parse(storageSetting);
             return storageAccount;
         }
 

@@ -2,7 +2,7 @@
 
 using JoshCodes.Web.Models.Persistence;
 
-using Microsoft.WindowsAzure.StorageClient;
+using Microsoft.WindowsAzure.Storage.Table;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -30,7 +30,7 @@ namespace JoshCodes.Persistence.Azure.Storage
                 RowKey = key,
                 PartitionKey = container,
                 Value = value,
-                LastModified = DateTime.UtcNow,
+                Timestamp = DateTime.UtcNow,
             };
             base.Create(kvp);
         }

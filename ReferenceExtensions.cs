@@ -1,7 +1,4 @@
-﻿using System;
-using System.Linq;
-
-
+﻿
 namespace JoshCodes.Persistence.Azure.Storage
 {
     public static class ReferenceExtensions
@@ -20,7 +17,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         public static TWrapper GetObject<TDefine, TWrapper, TEntity>(
             this AzureObjectReference idRef, AzureObjectStore<TDefine, TWrapper, TEntity> store)
-            where TEntity : Entity
+            where TEntity : Entity, new()
             where TWrapper : AzureObjectWrapper<TEntity>, TDefine 
         {
             if (idRef == null)

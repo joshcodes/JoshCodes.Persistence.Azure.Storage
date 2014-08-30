@@ -1,21 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Xml;
-using System.IO;
-using System.Runtime.Serialization;
-using System.Net;
 using System.Linq.Expressions;
-
-using Microsoft.WindowsAzure.StorageClient;
-
 using JoshCodes.Persistence.Azure.Storage.Extensions;
 using JoshCodes.Web.Models.Domain;
+using Microsoft.WindowsAzure.Storage.Table;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
     public abstract class AzureObjectStore<TDefine, TWrapper, TEntity>
-        where TEntity : Entity
+        where TEntity : Entity, new()
         where TWrapper : AzureObjectWrapper<TEntity>, TDefine
     {
         protected abstract TWrapper CreateObjectStore(TEntity entity);
@@ -45,13 +39,15 @@ namespace JoshCodes.Persistence.Azure.Storage
                 throw new ArgumentException("entity.PartitionKey is empty", "entity.PartitionKey");
             }
 
-            _tableClient.CreateTableIfNotExist(_entityTableName);
-            var tableServiceContext = _tableClient.GetDataServiceContext();
+            var table = _tableClient.GetTableReference(_entityTableName);
+            table.CreateIfNotExists();
 
             try
             {
-                tableServiceContext.AddObject(_entityTableName, entity);
-                tableServiceContext.SaveChanges();
+
+                TableOperation insertOperation = TableOperation.Insert(entity);
+                table.Execute(insertOperation);
+
             }
             catch (Exception ex)
             {
@@ -63,53 +59,67 @@ namespace JoshCodes.Persistence.Azure.Storage
             }
         }
 
-        public void DeleteAll()
-        {
-            TableServiceContext serviceContext;
-            foreach (var entity in this.GetQuery(out serviceContext))
-            {
-                serviceContext.DeleteObject(entity);
-            }
-            serviceContext.SaveChanges();
-        }
+        //public void DeleteAll()
+        //{
+        //    TableServiceContext serviceContext;
+        //    foreach (var entity in this.GetQuery(out serviceContext))
+        //    {
+        //        serviceContext.DeleteObject(entity);
+        //    }
+        //    serviceContext.SaveChanges();
+        //}
 
         #endregion
 
         #region Querying
 
-        protected System.Data.Services.Client.DataServiceQuery<TEntity> Query
+        protected TableQuery<TEntity> Query
         {
             get
             {
-                TableServiceContext tableServiceContext;
-                return GetQuery(out tableServiceContext);
+                CloudTable table;
+                return GetQuery(out table);
             }
         }
 
-        protected System.Data.Services.Client.DataServiceQuery<TEntity> GetQuery(out TableServiceContext tableServiceContext)
+        protected TableQuery<TEntity> GetQuery(out CloudTable table)
         {
-            tableServiceContext = _tableClient.GetDataServiceContext();
-            tableServiceContext.IgnoreResourceNotFoundException = true;
-            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
+            //tableServiceContext.IgnoreResourceNotFoundException = true;
+
+            table = _tableClient.GetTableReference(_entityTableName);
+            TableQuery<TEntity> query = (new TableQuery<TEntity>());
+
             return query;
         }
 
         public TDefine Find(string partitionKey, string rowKey)
         {
-            var results = from entity in Query
-                          where entity.RowKey == rowKey && entity.PartitionKey == partitionKey
-                          select entity;
-            try
+
+            var table = _tableClient.GetTableReference(_entityTableName);
+
+            // Create a retrieve operation that takes a customer entity.
+            TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(partitionKey, rowKey);
+
+            // Execute the retrieve operation.
+            TableResult retrievedResult = table.Execute(retrieveOperation);
+
+            // Check the result to make sure we found something
+            if (retrievedResult.Result != null)
             {
-                foreach (var result in results)
+                try
                 {
-                    return CreateObjectStore(result);
+                    return CreateObjectStore(((TEntity)retrievedResult.Result));
+                }
+                catch (System.Data.Services.Client.DataServiceQueryException)
+                {
+
                 }
             }
-            catch (System.Data.Services.Client.DataServiceQueryException)
+            else
             {
-
+                //TODO: Add logging of some sort
             }
+
             return default(TDefine);
         }
 
@@ -145,9 +155,21 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         public TDefine Find(string rowKey)
         {
-            var results = from entity in Query
-                          where entity.RowKey == rowKey
-                          select entity;
+            // Create the CloudTable object that represents the "people" table.
+            var table = _tableClient.GetTableReference(_entityTableName);
+          
+            // Construct the query operation for all customer entities where PartitionKey="Smith".
+            TableQuery<TEntity> query = new TableQuery<TEntity>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, rowKey));
+
+            var results = table.ExecuteQuery(query);
+
+            // Print the fields for each customer.
+            foreach (TEntity entity in table.ExecuteQuery(query))
+            {
+                //Console.WriteLine("{0}, {1}\t{2}\t{3}", entity.PartitionKey, entity.RowKey,
+                //    entity.Email, entity.PhoneNumber);
+            }
+
             try
             {
                 foreach (var result in results)
@@ -164,10 +186,11 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         public IEnumerable<TDefine> All()
         {
-            _tableClient.CreateTableIfNotExist(_entityTableName);
-            var tableServiceContext = _tableClient.GetDataServiceContext();
+            var table = _tableClient.GetTableReference(_entityTableName);
+            table.CreateIfNotExists();
 
-            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
+            TableQuery<TEntity> query = (new TableQuery<TEntity>());
+
             var executedQuery = query.Execute();
             var results = from entity in executedQuery
                           select CreateObjectStore(entity);
@@ -185,9 +208,14 @@ namespace JoshCodes.Persistence.Azure.Storage
                 return default(TWrapper);
             }
 
-            var tableServiceContext = _tableClient.GetDataServiceContext();
-            tableServiceContext.IgnoreResourceNotFoundException = true;
-            var query = tableServiceContext.CreateQuery<TEntity>(idRef.TableName);
+            //var tableServiceContext = _tableClient.GetDataServiceContext();
+            //tableServiceContext.IgnoreResourceNotFoundException = true;
+            //var query = tableServiceContext.CreateQuery<TEntity>(idRef.TableName);
+
+            var table = _tableClient.GetTableReference(_entityTableName);
+            table.CreateIfNotExists();
+
+            TableQuery<TEntity> query = (new TableQuery<TEntity>());
 
             var results = from entity in query
                           where entity.RowKey == idRef.RowKey && entity.PartitionKey == idRef.PartitionKey
@@ -233,18 +261,23 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         #endregion
         
-        private class AutoIncrementStorage : TableServiceEntity
+        private class AutoIncrementStorage : TableEntity
         {
             public long Value { get; set; }
         }
 
         protected static long AutoIncrementedValue(CloudTableClient tableClient, string entityTableName, string partitionKey, string rowKey)
         {
-            var tableServiceContext = tableClient.GetDataServiceContext();
+            //var tableServiceContext = tableClient.GetDataServiceContext();
             do
             {
-                tableServiceContext.IgnoreResourceNotFoundException = true;
-                var query = tableServiceContext.CreateQuery<AutoIncrementStorage>(entityTableName);
+                //tableServiceContext.IgnoreResourceNotFoundException = true;
+                //var query = tableServiceContext.CreateQuery<AutoIncrementStorage>(entityTableName);
+
+
+
+                TableQuery<TEntity> query = (new TableQuery<TEntity>());
+
                 var results = from entity in query
                               where entity.RowKey == rowKey && entity.PartitionKey == partitionKey
                               select entity;
@@ -254,7 +287,9 @@ namespace JoshCodes.Persistence.Azure.Storage
                     long autoIncrementValue;
                     if (resultsList.Count() == 0)
                     {
-                        tableClient.CreateTableIfNotExist(entityTableName);
+                        var table = tableClient.GetTableReference(entityTableName);
+                        table.CreateIfNotExists();
+
                         var storage = new AutoIncrementStorage()
                         {
                             Value = 2,
@@ -262,17 +297,27 @@ namespace JoshCodes.Persistence.Azure.Storage
                             PartitionKey = partitionKey
                         };
                         autoIncrementValue = 1;
-                        tableServiceContext.AddObject(entityTableName, storage);
+                        //tableServiceContext.AddObject(entityTableName, storage);
+
+                        TableOperation mergeOperation = TableOperation.Merge(storage);
+                        table.Execute(mergeOperation);
+
                     }
                     else
                     {
                         var storage = results.First();
                         autoIncrementValue = storage.Value;
                         storage.Value++;
-                        tableServiceContext.UpdateObject(storage);
+                        //tableServiceContext.UpdateObject(storage);
+
+
+                        var table = tableClient.GetTableReference(entityTableName);
+                        TableOperation mergeOperation = TableOperation.Merge(storage);
+                        table.Execute(mergeOperation);
+
                     }
 
-                    tableServiceContext.SaveChanges();
+                    //tableServiceContext.SaveChanges();
                     return autoIncrementValue;
                 }
                 catch (Exception ex)

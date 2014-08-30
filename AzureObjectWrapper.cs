@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Xml;
 using System.IO;
 using System.Runtime.Serialization;
-using System.Net;
-using System.Data.Services.Client;
-
-using Microsoft.WindowsAzure.StorageClient;
-
 using JoshCodes.Persistence.Azure.Storage.Extensions;
+using Microsoft.WindowsAzure.Storage.Table;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace JoshCodes.Persistence.Azure.Storage
 {
@@ -22,6 +18,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         // Where the entity object is accessed from
         protected CloudTableClient _tableClient;
+        protected CloudBlobClient _blobClient;
         private string _entityTableName;
 
         // The all important entity object which is null
@@ -97,17 +94,17 @@ namespace JoshCodes.Persistence.Azure.Storage
             }
         }
 
-        public DateTime LastModified
+        public DateTimeOffset LastModified
         {
             get
             {
-                return Storage.LastModified;
+                return Storage.Timestamp;
             }
             set
             {
                 EditableStorage((item) =>
                 {
-                    item.LastModified = value;
+                    item.Timestamp = value;
                     return true;
                 });
             }
@@ -128,14 +125,18 @@ namespace JoshCodes.Persistence.Azure.Storage
         protected bool AtomicModification<T>(T requiredValue, T newValue, out T currentValue, Expression<Func<TEntity, T>> propertySelector)
             where T : IComparable<T>
         {
-            var tableServiceContext = _tableClient.GetDataServiceContext();
-            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
-            var results = from entity in query
-                          where entity.RowKey == _rowKey && entity.PartitionKey == _partitionKey
-                          select entity;
-            var storage = results.First();
 
-            var success = storage.AtomicModification(requiredValue, newValue, out currentValue, tableServiceContext, propertySelector);
+            var table = _tableClient.GetTableReference(_entityTableName);
+
+            // Create a retrieve operation that takes a customer entity.
+            TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(_partitionKey, _rowKey);
+
+            // Execute the retrieve operation.
+            TableResult retrievedResult = table.Execute(retrieveOperation);
+
+            var storage = (TEntity)retrievedResult.Result;
+
+            var success = storage.AtomicModification(requiredValue, newValue, out currentValue, _tableClient, propertySelector);
             if (success)
             {
                 this._storage = storage;
@@ -148,14 +149,18 @@ namespace JoshCodes.Persistence.Azure.Storage
             Action<TEntity> updateAction,
             Action<TEntity> onSuccess)
         {
-            var tableServiceContext = _tableClient.GetDataServiceContext();
-            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
-            var results = from entity in query
-                          where entity.RowKey == _rowKey && entity.PartitionKey == _partitionKey
-                          select entity;
-            var storage = results.First();
+            var table = _tableClient.GetTableReference(_entityTableName);
 
-            var success = storage.AtomicModification(conditionForExecution, updateAction, onSuccess, tableServiceContext);
+            // Create a retrieve operation that takes a customer entity.
+            TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(_partitionKey, _rowKey);
+
+            // Execute the retrieve operation.
+            TableResult retrievedResult = table.Execute(retrieveOperation);
+
+            var storage = (TEntity)retrievedResult.Result;
+
+            var success = storage.AtomicModification(conditionForExecution, updateAction, onSuccess, _tableClient);
+
             if (success)
             {
                 this._storage = storage;
@@ -175,47 +180,62 @@ namespace JoshCodes.Persistence.Azure.Storage
         protected void EditableStorage(Func<TEntity, bool, bool> callback)
         {
             bool isPreconditionFailedResponse = false;
-            var tableServiceContext = _tableClient.GetDataServiceContext();
+            var table = _tableClient.GetTableReference(_entityTableName);
             do
             {
-                var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
-                var results = from entity in query
-                              where entity.RowKey == _rowKey && entity.PartitionKey == _partitionKey
-                              select entity;
-                var storage = results.First();
+                // Create a retrieve operation that takes a customer entity.
+                TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(_partitionKey, _rowKey);
 
-                try
+                // Execute the retrieve operation.
+                TableResult retrievedResult = table.Execute(retrieveOperation);
+
+                // Check the result to make sure we found something
+                if (retrievedResult.Result != null)
                 {
-                    if (callback.Invoke(storage, isPreconditionFailedResponse))
+                    try
                     {
-                        tableServiceContext.UpdateObject(storage);
-                        tableServiceContext.SaveChanges();
-                        this._storage = storage;
+                        if (callback.Invoke((TEntity)retrievedResult.Result, isPreconditionFailedResponse))
+                        {
+                            TableOperation mergeOperation = TableOperation.InsertOrMerge((TEntity)retrievedResult.Result);
+                            table.Execute(mergeOperation);
+
+                            this._storage = (TEntity)retrievedResult.Result;
+                        }
+                        return;
                     }
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    isPreconditionFailedResponse = ex.IsProblemPreconditionFailed();
-                    if (!isPreconditionFailedResponse)
+                    catch (Exception ex)
                     {
-                        throw;
+                        isPreconditionFailedResponse = ex.IsProblemPreconditionFailed();
+                        if (!isPreconditionFailedResponse)
+                        {
+                            throw;
+                        }
                     }
                 }
+                else
+                { 
+                    //TODO: Add logging of some sort
+                }
+
             } while (!isPreconditionFailedResponse);
         }
 
         public void Delete()
         {
-            var tableServiceContext = _tableClient.GetDataServiceContext();
-            var query = tableServiceContext.CreateQuery<TEntity>(_entityTableName);
-            var results = from entity in query
-                          where entity.RowKey == _rowKey && entity.PartitionKey == _partitionKey
-                          select entity;
-            
-            var storage = results.First();
-            tableServiceContext.DeleteObject(storage);
-            tableServiceContext.SaveChanges();
+            var table = _tableClient.GetTableReference(_entityTableName);
+
+            // Create a retrieve operation that takes a customer entity.
+            TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(_partitionKey, _rowKey);
+
+            // Execute the retrieve operation.
+            TableResult retrievedResult = table.Execute(retrieveOperation);
+
+            // Check the result to make sure we found something
+            if (retrievedResult.Result != null)
+            {
+                TableOperation insertOperation = TableOperation.Delete((TEntity)retrievedResult.Result);
+                table.Execute(insertOperation);
+            }
         }
 
         public virtual bool Validate()
