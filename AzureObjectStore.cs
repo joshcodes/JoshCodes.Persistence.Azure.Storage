@@ -87,7 +87,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             //tableServiceContext.IgnoreResourceNotFoundException = true;
 
             table = _tableClient.GetTableReference(_entityTableName);
-            TableQuery<TEntity> query = (new TableQuery<TEntity>());
+            var query = (new TableQuery<TEntity>());
 
             return query;
         }
