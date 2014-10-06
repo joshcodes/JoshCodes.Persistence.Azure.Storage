@@ -78,7 +78,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             {
                 if (_storage == null)
                 {
-                    this.EditableStorage((s) => { _storage = s; return true; });
+                    this.Save((s) => { _storage = s; return true; });
                 }
                 return _storage;
             }
@@ -102,7 +102,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             }
             set
             {
-                EditableStorage((item) =>
+                Save((item) =>
                 {
                     item.Timestamp = value;
                     return true;
@@ -169,7 +169,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         // TODO: Change this to return null entity if do not save
-        protected void EditableStorage(Func<TEntity, bool> callback)
+        protected void Save(Func<TEntity, bool> callback)
         {
             this.EditableStorage((entity, isRetry) =>
                 {
@@ -179,42 +179,23 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         protected void EditableStorage(Func<TEntity, bool, bool> callback)
         {
-            bool isPreconditionFailedResponse = false;
+            var isPreconditionFailedResponse = false;
             var table = _tableClient.GetTableReference(_entityTableName);
             do
             {
-                // Create a retrieve operation that takes a customer entity.
-                TableOperation retrieveOperation = TableOperation.Retrieve<TEntity>(_partitionKey, _rowKey);
-
-                // Execute the retrieve operation.
-                TableResult retrievedResult = table.Execute(retrieveOperation);
-
-                // Check the result to make sure we found something
-                if (retrievedResult.Result != null)
+                try
                 {
-                    try
-                    {
-                        if (callback.Invoke((TEntity)retrievedResult.Result, isPreconditionFailedResponse))
-                        {
-                            TableOperation mergeOperation = TableOperation.InsertOrMerge((TEntity)retrievedResult.Result);
-                            table.Execute(mergeOperation);
-
-                            this._storage = (TEntity)retrievedResult.Result;
-                        }
-                        return;
-                    }
-                    catch (Exception ex)
-                    {
-                        isPreconditionFailedResponse = ex.IsProblemPreconditionFailed();
-                        if (!isPreconditionFailedResponse)
-                        {
-                            throw;
-                        }
-                    }
+                    var mergeOperation = TableOperation.InsertOrMerge(_storage);
+                    table.Execute(mergeOperation);
+                    return;
                 }
-                else
-                { 
-                    //TODO: Add logging of some sort
+                catch (Exception ex)
+                {
+                    isPreconditionFailedResponse = ex.IsProblemPreconditionFailed();
+                    if (!isPreconditionFailedResponse)
+                    {
+                        throw;
+                    }
                 }
 
             } while (!isPreconditionFailedResponse);

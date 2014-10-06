@@ -7,9 +7,9 @@ namespace JoshCodes.Persistence.Azure.Storage
     {
         public AzureObjectReference(string rowKey, string partitionKey, string tableName)
         {
-            this.RowKey = rowKey;
-            this.PartitionKey = partitionKey;
-            this.TableName = tableName;
+            RowKey = rowKey;
+            PartitionKey = partitionKey;
+            TableName = tableName;
         }
 
         [DataMember(Name = "k")]
@@ -23,7 +23,7 @@ namespace JoshCodes.Persistence.Azure.Storage
 
         public static System.Collections.Generic.IEqualityComparer<AzureObjectReference> GetComparer()
         {
-            return JoshCodes.Core.Equality<AzureObjectReference>.CreateComparer((azureObjectReference) => azureObjectReference.RowKey);
+            return Core.Equality<AzureObjectReference>.CreateComparer(azureObjectReference => azureObjectReference.RowKey);
         }
     }
 }

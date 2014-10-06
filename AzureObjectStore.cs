@@ -87,9 +87,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             //tableServiceContext.IgnoreResourceNotFoundException = true;
 
             table = _tableClient.GetTableReference(_entityTableName);
-            TableQuery<TEntity> query = (new TableQuery<TEntity>());
-
-            return query;
+            return table.CreateQuery<TEntity>();
         }
 
         public TDefine Find(string partitionKey, string rowKey)
@@ -115,10 +113,6 @@ namespace JoshCodes.Persistence.Azure.Storage
 
                 }
             }
-            else
-            {
-                //TODO: Add logging of some sort
-            }
 
             return default(TDefine);
         }
@@ -133,9 +127,9 @@ namespace JoshCodes.Persistence.Azure.Storage
         public virtual TDefine Find(Guid guid)
         {
             var rowKey = Entity.BuildRowKey(guid);
-            var partitionKey = Entity.BuildPartitionKey(rowKey.ToString());
+            var partitionKey = Entity.BuildPartitionKey(rowKey);
             var entity = Find(partitionKey, rowKey);
-            if(entity != null)
+            if(!(entity == null))
             {
                 return entity;
             }
@@ -164,11 +158,6 @@ namespace JoshCodes.Persistence.Azure.Storage
             var results = table.ExecuteQuery(query);
 
             // Print the fields for each customer.
-            foreach (TEntity entity in table.ExecuteQuery(query))
-            {
-                //Console.WriteLine("{0}, {1}\t{2}\t{3}", entity.PartitionKey, entity.RowKey,
-                //    entity.Email, entity.PhoneNumber);
-            }
 
             try
             {
@@ -235,7 +224,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         }
 
         protected IEnumerable<TWrapper> QueryOn<TModelObjectEntity>(
-            JoshCodes.Web.Models.Persistence.IDefineModelObject referencedModelObject,
+            Web.Models.Persistence.IDefineModelObject referencedModelObject,
             Expression<Func<TEntity, string>> propertyExpr)
             where TModelObjectEntity : Entity
         {
@@ -248,7 +237,7 @@ namespace JoshCodes.Persistence.Azure.Storage
             MethodCallExpression whereCallExpression = Expression.Call(
                 typeof(Queryable),
                 "Where",
-                new Type[] { typeof(TEntity) },
+                new[] { typeof(TEntity) },
                 Query.Expression,
                 whereCondition);
 
@@ -263,7 +252,7 @@ namespace JoshCodes.Persistence.Azure.Storage
         
         private class AutoIncrementStorage : TableEntity
         {
-            public long Value { get; set; }
+            public long Value { private get; set; }
         }
 
         protected static long AutoIncrementedValue(CloudTableClient tableClient, string entityTableName, string partitionKey, string rowKey)
@@ -290,7 +279,7 @@ namespace JoshCodes.Persistence.Azure.Storage
                         var table = tableClient.GetTableReference(entityTableName);
                         table.CreateIfNotExists();
 
-                        var storage = new AutoIncrementStorage()
+                        var storage = new AutoIncrementStorage
                         {
                             Value = 2,
                             RowKey = rowKey,

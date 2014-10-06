@@ -28,9 +28,9 @@ namespace JoshCodes.Persistence.Azure.Storage
                 throw new ArgumentException("Last Modified value must be set", "lastModified");
             }
 
-            this.RowKey = Entity.BuildRowKey(key);
-            this.PartitionKey = Entity.BuildPartitionKey(this.RowKey);
-            this.Timestamp = lastModified;
+            RowKey = Entity.BuildRowKey(key);
+            PartitionKey = Entity.BuildPartitionKey(this.RowKey);
+            Timestamp = lastModified;
         }
 
         public Entity(string key, DateTime lastModified)
